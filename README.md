@@ -74,7 +74,11 @@ Il protocollo di acquisizione è stato studiato per garantire la massima riprodu
 * **Posizionamento Anatomico:** Fissaggio rigido alla superficie dorsale del polso/avambraccio distale del braccio dominante, minimizzando artefatti da scivolamento cutaneo durante le decelerazioni d'impatto ad alto numero di G.
 * **Frequenza di Campionamento ($F_s$):** Clock hardware sincrono bloccato a **$200\text{ Hz}$** ($T_s = 5.0\text{ ms}$).
 * **Campione & Volume Dati:** 10 soggetti (5 maschi, 5 femmine). Ciascun partecipante ha eseguito 50 Jab e 50 Montanti:
-  $$\text{Dataset Complessivo} = 10 \times (50 + 50) = 1.000\text{ Colpi Validati}$$
+
+$$
+\text{Dataset Complessivo} = 10 \times (50 + 50) = 1.000\text{ Colpi Validati}
+$$
+
 * **Ciclo Temporale del Protocollo:**
   1. **Riposo Iniziale ($3.0\text{ s}$):** Posizione di guardia statica (*Fermo*) per la taratura della baseline di rumore e degli offset dei sensori.
   2. **Azione Balistica ($1.0\text{ s}$):** Estensione lineare rapida (*Jab*) o traiettoria circolare ascendente (*Montante*).
@@ -94,23 +98,39 @@ I segnali grezzi degli accelerometri e giroscopi MEMS presentano bias gravitazio
 
 ### 1. Filtraggio Passa-Banda
 Un filtro digitale IIR Butterworth di 4° ordine rimuove le oscillazioni posturali al di sotto di $0.5\text{ Hz}$ e sopprime il tremore e il rumore elettronico al di sopra di $20\text{ Hz}$:
-$$H(z) = \frac{\sum_{k=0}^{M} b_k z^{-k}}{1 + \sum_{k=1}^{N} a_k z^{-k}}, \quad f_{\text{low}} = 0.5\text{ Hz}, \quad f_{\text{high}} = 20.0\text{ Hz}$$
+
+$$
+H(z) = \frac{\sum_{k=0}^{M} b_k z^{-k}}{1 + \sum_{k=1}^{N} a_k z^{-k}}, \qquad f_{\text{low}} = 0.5\text{ Hz}, \quad f_{\text{high}} = 20.0\text{ Hz}
+$$
 
 ### 2. Smoothing tramite Media Mobile Esponenziale (EMA)
 Per evitare falsi allarmi nella fase di triggering, viene applicato un filtro EMA sulla componente cinematica dominante:
-$$y[n] = \alpha \cdot x[n] + (1 - \alpha) \cdot y[n-1], \quad \alpha = 0.2$$
+
+$$
+y[n] = \alpha \cdot x[n] + (1 - \alpha) \cdot y[n-1], \qquad \alpha = 0.2
+$$
 
 ### 3. Soglia Dinamica Adattiva & Finestratura
 * L'analisi cinematica ha identificato l'**asse Y dell'accelerometro** come la componente con il più alto rapporto segnale-rumore discriminante.
 * L'intervallo di warmup iniziale ($3.0\text{ s}$) calcola la deviazione standard della baseline a riposo $\sigma_{\text{baseline}}$.
 * Il trigger scatta quando:
-  $$\text{Acc}_Y[n] > \text{Soglia} = K \cdot \sigma_{\text{baseline}}, \quad K = 3.0$$
+
+$$
+\text{Acc}_Y[n] > \text{Soglia} = K \cdot \sigma_{\text{baseline}}, \qquad K = 3.0
+$$
+
 * Un buffer circolare estrae una finestra temporale simmetrica di $\pm 1.0\text{ s}$ attorno al picco del colpo:
-  $$T = 2.0\text{ s} \times 200\text{ Hz} + 1 = 401\text{ campioni}$$
+
+$$
+T = 2.0\text{ s} \times 200\text{ Hz} + 1 = 401\text{ campioni}
+$$
 
 ### 4. Standardizzazione Z-Score
 Ciascuna finestra estratta viene normalizzata canale per canale a media nulla e varianza unitaria:
-$$z_{c}[n] = \frac{x_{c}[n] - \mu_c}{\sigma_c}, \quad \forall c \in \{a_x, a_y, a_z, g_x, g_y, g_z\}$$
+
+$$
+z_{c}[n] = \frac{x_{c}[n] - \mu_c}{\sigma_c}, \qquad \forall c \in \{a_x, a_y, a_z, g_x, g_y, g_z\}
+$$
 
 ---
 
@@ -131,11 +151,16 @@ Per ciascuno dei 6 assi inerziali vengono estratte 10 metriche statistiche e mor
 9. **Valore Minimo:** $\min(x)$
 10. **Intervallo (Range):** $\max(x) - \min(x)$
 
-$$\text{Totale Feature} = 6\text{ canali} \times 10\text{ descrittori} = 60\text{ feature per prova}$$
+$$
+\text{Totale Feature} = 6\text{ canali} \times 10\text{ descrittori} = 60\text{ feature per prova}
+$$
 
 ### Riduzione della Dimensionalità con PCA
 Per eliminare la multicollinearità e consentire l'inferenza embedded a bassissimo assorbimento computazionale, è stata calcolata la PCA sul set di addestramento (70%):
-$$\mathbf{C} = \frac{1}{N-1} \mathbf{Z}^T \mathbf{Z} = \mathbf{V} \mathbf{\Lambda} \mathbf{V}^T$$
+
+$$
+\mathbf{C} = \frac{1}{N-1} \mathbf{Z}^T \mathbf{Z} = \mathbf{V} \mathbf{\Lambda} \mathbf{V}^T
+$$
 Impostando come criterio la soglia di **varianza cumulativa spiegata al 95%** ($\sum_{i=1}^k \lambda_i / \sum \lambda \ge 0.95$), lo spazio è stato compresso da **60 feature a sole 22 componenti principali** (**abbattimento del 63.3% della dimensionalità**).
 
 <p align="center">
@@ -250,7 +275,13 @@ La rete 1D-CNN addestrata (`Rete_CNN_Finale.mat`) è integrata in un runtime rea
    - A riposo e in guardia, il blocco rimane spento ($0\text{ FLOPS}$ consumati), salvaguardando la batteria dello smartphone e attivandosi esclusivamente all'evento trigger.
 4. **Blocco `Decisore` (Dual-Gate Safety Logic):**
    - Convalida la classe predetta esclusivamente se:
-     $$\text{TriggerOut} = \text{TriggerFired} \land \max(P_{\text{Jab}}, P_{\text{Montante}}) \ge 0.80$$
+
+
+
+\text{TriggerOut} = \text{TriggerFired} \land \max(P_{\text{Jab}}, P_{\text{Montante}}) \ge 0.80
+
+
+
    - Filtra i falsi positivi generati da movimenti involontari, riposizionamento dei guantoni o gestualità quotidiana.
 5. **Blocchi `Traduttore` & `ImagePanel`:**
    - Mappa l'indice numerico confermato (`0 = Riposo`, `1 = Jab`, `2 = Montante`) all'immagine visiva corrispondente (`Riposo_1.jpg`, `Jab_1.jpg`, `Montante_1.jpg`).
