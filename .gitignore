@@ -1,0 +1,17 @@
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# MATLAB / Simulink temporary and cache files
+*.asv
+*.m~
+slprj/
+*.slxc
+*.autosave
+*.mex*
+*.log
+
+# Large local raw datasets (keep processed models and sample MAT files)
+DATASET_GREZZO/
+Prove/
